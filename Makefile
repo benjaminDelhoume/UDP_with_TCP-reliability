@@ -1,5 +1,5 @@
 CFLAGS = -g -Wall -DDEBUG 
-EXEC = server client
+EXEC = server
 SRC= $(EXEC:=.c)
 OBJ= $(SRC:.c=.o)
 
@@ -8,8 +8,6 @@ OBJ= $(SRC:.c=.o)
 all: $(EXEC)
 
 server: server.o funcs.o
-
-client: client.o funcs.o
 
 %: %.o
 	gcc  $^ -o $@
