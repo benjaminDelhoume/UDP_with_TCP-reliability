@@ -12,13 +12,12 @@
 #include <sys/time.h>
 #include <stdbool.h>
 
-#define MAX_DGRAM_SIZE 1000
+#define MAX_DGRAM_SIZE 5000
 #define FILE_BUFFER_SIZE 1024
 #define TIMEOUT 1000
+#define ALPHA 0.7
 
 void error(char *msg);
-
-int tcp_over_udp_connect(int fd, struct sockaddr_in *server);
 
 int tcp_over_udp_accept(int fd, int data_port, struct sockaddr_in *client);
 
@@ -26,10 +25,12 @@ int safe_send(int fd, char* buffer, struct sockaddr_in *client, int seq_number);
 
 int safe_recv(int fd, char* buffer, struct sockaddr_in *client, int seq_number);
 
-int sendFile(int descripteur, struct sockaddr_in * client_addr, FILE* file);
-
-int receiveFile(int descripteur, char* buffer, struct sockaddr_in * client_addr,int seq_number);
+int sendFile(int descripteur, struct sockaddr_in *client_addr, FILE* file);
 
 bool putFileIntoBuffer(FILE* file, char* buffer, int bufferSize);
+
+struct timeval getTime(void);
+
+long int estimateRTT(struct timeval send_time, struct timeval receive_time, long int estimate_RTT);
 
 #endif

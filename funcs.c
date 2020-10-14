@@ -7,56 +7,6 @@ void error(char *msg)
     exit(1);
 }
 
-int tcp_over_udp_connect(int fd, struct sockaddr_in *server)
-{
-    char msg[32];
-    int n;
-    socklen_t server_len = sizeof(struct sockaddr);
-    printf("Sending SYN\n");
-
-    n = sendto(fd, "SYN\n", 4, 0, (struct sockaddr *)server, server_len);
-    if (n < 0)
-    {
-        perror("Error sending SYN packet\n");
-        return -1;
-    }
-
-    printf("SYN sent\n");
-
-    memset(msg, 0, 32);
-    n = recvfrom(fd, &msg, 32, 0, (struct sockaddr *)server, &server_len);
-
-    if (n < 0)
-    {
-        perror("Error receiving SYN-ACK\n");
-        return -1;
-    }
-
-    if (strncmp(msg, "SYN-ACK", 7) != 0)
-    {
-        perror("SYN-ACK not received\n");
-        return -1;
-    }
-
-    printf("SYN-ACK received\n");
-
-    char data_port[6];
-    memset(data_port, 0, 6);
-
-    strncpy(data_port, msg + 8, 6);
-
-    printf("Sending ACK\n");
-    n = sendto(fd, "ACK\n", 4, 0, (struct sockaddr *)server, server_len);
-    if (n < 0)
-    {
-        perror("Error sending ACK packet\n");
-        return -1;
-    }
-
-    printf("ACK sent\n");
-    return atoi(data_port);
-}
-
 int tcp_over_udp_accept(int fd, int data_port, struct sockaddr_in *client)
 {
     printf("Waiting for connection\n");
@@ -107,15 +57,21 @@ int safe_send(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
     bool flag = true;
     int msglen = 0;
     int sequence_number_received = 0;
+    long int estimate_RTT;
     struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = TIMEOUT;
+    struct timeval send_time;
+    struct timeval receive_time;
     fd_set receive_fd_set;
 
-
+    //initialisation du RTT
+    timeout.tv_sec = 0;
+    timeout.tv_usec = TIMEOUT;
+    estimate_RTT = TIMEOUT;
     while(flag)
     {
       msglen = sendto(fd, buffer, strlen(buffer), 0, (struct sockaddr *)client, client_size);
+
+      send_time = getTime();
 
       if (msglen < 0)
       {
@@ -135,13 +91,19 @@ int safe_send(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
       else if (rcv == 0)
       {
         printf("Timeout, Resending\n");
-        timeout.tv_usec = TIMEOUT;
+        receive_time = getTime();
+        estimate_RTT = estimateRTT(send_time,receive_time,estimate_RTT);
+        timeout.tv_usec = estimate_RTT;
       }
       else
       {
-        printf("Time to receive %ld \n", (TIMEOUT-timeout.tv_usec));
-        timeout.tv_usec = TIMEOUT;
         ack_msglen = recvfrom(fd, ack_buffer, 9, 0, (struct sockaddr *)client, &client_size);
+
+        receive_time = getTime();
+        estimate_RTT = estimateRTT(send_time,receive_time,estimate_RTT);
+        timeout.tv_usec = estimate_RTT;
+
+        printf("Estimate RTT %ld \n", (timeout.tv_usec));
 
         if (ack_msglen < 0)
         {
@@ -188,47 +150,8 @@ int safe_recv(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
         perror("Error receiving message\n");
         return -1;
     }
-    char ack[12];
-    memset(ack, 0, 12);
-
-    int new_seq_number = seq_number + msglen;
-
-    sprintf(ack, "ACK-%06d\n", new_seq_number);
-
-    /*int ack_msglen = sendto(fd, ack, strlen(ack), 0, (struct sockaddr *)client, client_size);
-
-    if (ack_msglen < 0)
-    {
-        error("Error sending ACK\n");
-    }*/
 
     return msglen;
-}
-
-int receiveFile(int descripteur, char *buffer, struct sockaddr_in *client_addr, int seq_number)
-{
-    int endFile = 0;
-    int msglen = 0;
-    int new_seq_number = seq_number;
-    int i;
-
-    while (endFile == 0)
-    {
-        msglen = safe_recv(descripteur, buffer, client_addr, new_seq_number);
-        new_seq_number += msglen;
-        for (i = 0; i < msglen; i++)
-        {
-            if (buffer[i] == EOF)
-            {
-                int fileSize = seq_number - new_seq_number;
-                endFile = 1;
-                return fileSize;
-            }
-            else
-                printf("%c", buffer[i]);
-        }
-    }
-    return -1;
 }
 
 int sendFile(int descripteur, struct sockaddr_in *client_addr, FILE *file)
@@ -278,4 +201,27 @@ bool putFileIntoBuffer(FILE *file, char *buffer, int bufferSize)
             return true;
     }
     return false;
+}
+
+struct timeval getTime(void)
+{
+    struct timeval currentTime;
+    gettimeofday (&currentTime, NULL);
+    return currentTime;
+}
+
+long int estimateRTT(struct timeval send_time, struct timeval receive_time, long int estimate_RTT)
+{
+  long double new_estimate_RTT;
+  if(receive_time.tv_usec >= send_time.tv_usec){
+    new_estimate_RTT = ALPHA * estimate_RTT + (1 - ALPHA) * (receive_time.tv_usec - send_time.tv_usec);
+    printf(" difference normale : %ld \n",(long int) new_estimate_RTT);
+
+  } else {
+    //proceder à la retenu
+    new_estimate_RTT = ALPHA * estimate_RTT + (1 - ALPHA) * (1000000 + receive_time.tv_usec - send_time.tv_usec);
+    printf(" difference avec retenu : %ld \n",(long int) new_estimate_RTT);
+  }
+
+  return (long int) new_estimate_RTT;
 }
