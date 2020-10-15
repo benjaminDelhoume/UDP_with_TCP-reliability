@@ -13,7 +13,7 @@
 #include <stdbool.h>
 
 #define MAX_DGRAM_SIZE 5000
-#define FILE_BUFFER_SIZE 1024
+#define FILE_BUFFER_SIZE 4096
 #define TIMEOUT 1000
 #define ALPHA 0.7
 
