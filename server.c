@@ -262,7 +262,7 @@ int main(int argc, char *argv[])
             //send packets
             pthread_mutex_lock(&mutex);
             seq_number++;
-
+            
             //put sequence number into buffer
             memset(buffer, 0, FILE_BUFFER_SIZE);
             printf("this is your seq_number: %06d\n", seq_number);
