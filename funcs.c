@@ -1,5 +1,4 @@
 #include "funcs.h"
-#include <stdbool.h>
 
 void error(char *msg)
 {
@@ -139,52 +138,6 @@ int safe_send(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
     return msglen;
 }
 
-int safe_recv(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
-{
-    socklen_t client_size = sizeof(struct sockaddr);
-
-    int msglen = recvfrom(fd, buffer, MAX_DGRAM_SIZE, 0, (struct sockaddr *)client, &client_size);
-
-    if (msglen < 0)
-    {
-        perror("Error receiving message\n");
-        return -1;
-    }
-
-    return msglen;
-}
-
-int sendFile(int descripteur, struct sockaddr_in *client_addr, FILE *file)
-{
-
-    char buffer[FILE_BUFFER_SIZE];
-    int msglen = 0;
-    int bytes_send = 0;
-    bool flag = false;
-    int seq_number = 0;
-
-    fseek(file, 0L, SEEK_END);
-    int fileSize = ftell(file);
-    printf("taille du fichier : %d\n", fileSize);
-    fseek(file, 0L, SEEK_SET);
-
-    while (!flag)
-    {
-        seq_number ++;
-        printf("this is your seq_number: %d\n", seq_number);
-        memset(buffer, 0, FILE_BUFFER_SIZE);
-        sprintf(buffer, "%06d\n", seq_number);
-        flag = putFileIntoBuffer(file, buffer, FILE_BUFFER_SIZE);
-        msglen = safe_send(descripteur, buffer, client_addr, seq_number);
-        bytes_send += msglen;
-        printf("total bytes send: %d\n", bytes_send);
-        fseek(file, 0L, bytes_send - 6*seq_number);
-    }
-
-    printf("This is you seq_number at the end : %d\n", seq_number);
-    return bytes_send;
-}
-
 bool putFileIntoBuffer(FILE *file, char *buffer, int bufferSize)
 {
     int i;
@@ -224,4 +177,27 @@ long int estimateRTT(struct timeval send_time, struct timeval receive_time, long
   }
 
   return (long int) new_estimate_RTT;
+}
+
+int find(int *list, int sequence_number)
+{
+    for(int i = 0; i < WINDOW_LENGTH; i++){
+      if( list[i] == WINDOW_LENGTH){
+        return i;
+      }
+    }
+    return -1;
+}
+
+bool timeout(struct timeval send_time, long int estimate_RTT)
+{
+  timeval now = getTime();
+  if (now.tv_usec >= estimateRTT){
+    now.tv_usec =- estimateRTT;
+  }else{
+    //procéder à la retenu
+    now.tv_sec =- 1
+    now.tv_usec = 1000000 + now.tv_usec - estimate_RTT;
+  }
+  return (now >= send_time);
 }
