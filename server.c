@@ -17,7 +17,7 @@ struct timeval timeList[WINDOW_LENGTH];
 
 void *listen_ack()
 {
-
+  printf("Starting listening thread\n");
   //struct timeval send_time;
   struct timeval receive_time;
 
@@ -26,7 +26,6 @@ void *listen_ack()
   FD_SET(server_udp_data, &receive_fd_set);
 
   char ack_buffer[9];
-  //int ack_msglen;
   char ack_number[6];
   int sequence_number_received = 0;
   int spot;
@@ -37,12 +36,12 @@ void *listen_ack()
 
     if (ack_msglen < 0)
     {
-      error("Error receiving ACK\n");
+      printf("Error receiving Message\n");
     }
 
     if (strncmp(ack_buffer, "ACK", 3) != 0)
     {
-      error("Bad ACK format\n");
+      printf("Bad ACK format\n");
     }
 
     memset(ack_number, 0, 6);
@@ -73,6 +72,7 @@ void *listen_ack()
     }
     pthread_mutex_unlock(&mutex);
   }
+  return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -225,7 +225,7 @@ int main(int argc, char *argv[])
         error("Mutex initialization failed");
       }
       //Creating the listening thread
-      pthread_create(&threadack, NULL, *listen_ack, NULL);
+      pthread_create(&threadack, NULL, listen_ack, NULL);
 
       // Starting here: we are connected to a client
       memset(&buffer, 0, FILE_BUFFER_SIZE);
@@ -244,8 +244,8 @@ int main(int argc, char *argv[])
         error("Problème lors de l'ouverture du fichier");
       }
 
-      memset(&sendList, 0, WINDOW_LENGTH*sizeof(int));
-      memset(&timeList, 0, WINDOW_LENGTH*sizeof(int));
+      memset(&sendList, 0, WINDOW_LENGTH * sizeof(int));
+      memset(&timeList, 0, WINDOW_LENGTH * sizeof(int));
 
       fseek(file, 0L, SEEK_END);
       int fileSize = ftell(file);
