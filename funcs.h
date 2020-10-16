@@ -34,4 +34,6 @@ int find(int *list, int sequence_number);
 
 bool timeout(struct timeval send_time, long int estimate_RTT);
 
+void *listen_ack();
+
 #endif

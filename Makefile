@@ -10,10 +10,10 @@ all: $(EXEC)
 server: server.o funcs.o
 
 %: %.o
-	gcc  $^ -o $@
+	gcc  $^ -o $@ -lpthread
 
 %.o: %.c %.h
-	gcc $(CFLAGS) -c $< -o $@
+	gcc $(CFLAGS) -c $< -o $@ -lpthread
 
 clean: 
 	\rm -rf $(OBJ) *.o $(EXEC)
