@@ -1,8 +1,13 @@
-UDP Server with reliability
-===============
+#UDP Server with reliability
 
+UDP socket server with some reliability of TCP
 
-1. Server Launch
-   1. ./server wellknownport privateport
+* Server Launch
+   * ./server wellknownport privateport
+  
+
+## Author
+* GRENIER Raphaëlle
+* DELHOUME Benjamin
    
 
