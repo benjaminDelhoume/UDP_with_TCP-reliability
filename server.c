@@ -1,7 +1,7 @@
 #include "funcs.h"
 
 pthread_mutex_t mutex;
-int server_udp_data;
+int server_udp_data = 0;
 
 int seq_number = 0;
 int jeton = WINDOW_LENGTH;
@@ -21,9 +21,9 @@ void *listen_ack()
   //struct timeval send_time;
   struct timeval receive_time;
 
-  fd_set receive_fd_set;
-  FD_ZERO(&receive_fd_set);
-  FD_SET(server_udp_data, &receive_fd_set);
+  //fd_set receive_fd_set;
+  //FD_ZERO(&receive_fd_set);
+  //FD_SET(server_udp_data, &receive_fd_set);
 
   char ack_buffer[9];
   char ack_number[6];
@@ -34,9 +34,14 @@ void *listen_ack()
   {
     int ack_msglen = recvfrom(server_udp_data, ack_buffer, 9, 0, (struct sockaddr *)&client, &client_size);
 
+    printf("Client-%d(%d)>>%s\n", client.sin_port, ack_msglen, ack_buffer);
+
+    printf("ACK reçu %s\n", ack_buffer);
+
     if (ack_msglen < 0)
     {
       printf("Error receiving Message\n");
+      return NULL;
     }
 
     if (strncmp(ack_buffer, "ACK", 3) != 0)
@@ -164,7 +169,7 @@ int main(int argc, char *argv[])
       perror("Unable to send SYN-ACK\n");
       return -1;
     }
-    int server_udp_data = socket(AF_INET, SOCK_DGRAM, 0);
+    server_udp_data = socket(AF_INET, SOCK_DGRAM, 0);
     setsockopt(server_udp_data, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval, sizeof(int));
 
     //handle error
@@ -262,7 +267,7 @@ int main(int argc, char *argv[])
             //send packets
             pthread_mutex_lock(&mutex);
             seq_number++;
-            
+
             //put sequence number into buffer
             memset(buffer, 0, FILE_BUFFER_SIZE);
             printf("this is your seq_number: %06d\n", seq_number);
@@ -283,6 +288,8 @@ int main(int argc, char *argv[])
             sendList[spot] = seq_number;
             timeList[spot] = getTime();
 
+            printf("This is your sendlist : %ls",sendList);
+
             jeton--;
             pthread_mutex_unlock(&mutex);
           }
@@ -301,24 +308,27 @@ int main(int argc, char *argv[])
           pthread_mutex_lock(&mutex);
           for (int i = 0; i < WINDOW_LENGTH; i++)
           {
-            if (timeout(timeList[i], estimate_RTT))
+            if (sendList[i] != 0)
             {
-              printf("Resending seq_number: %06d\n", sendList[i]);
+              if (timeout(timeList[i], estimate_RTT))
+              {
+                printf("Resending seq_number: %06d\n", sendList[i]);
 
-              //put sequence number into buffer
-              memset(buffer, 0, FILE_BUFFER_SIZE);
-              printf("this is your seq_number: %06d\n", sendList[i]);
-              sprintf(buffer, "%06d\n", sendList[i]);
+                //put sequence number into buffer
+                memset(buffer, 0, FILE_BUFFER_SIZE);
+                printf("this is your seq_number: %06d\n", sendList[i]);
+                sprintf(buffer, "%06d\n", sendList[i]);
 
-              //put text into buffer
-              fseek(file, 0L, (sendList[i] - 1) * (FILE_BUFFER_SIZE - 6));
-              putFileIntoBuffer(file, buffer, FILE_BUFFER_SIZE);
+                //put text into buffer
+                fseek(file, 0L, (sendList[i] - 1) * (FILE_BUFFER_SIZE - 6));
+                putFileIntoBuffer(file, buffer, FILE_BUFFER_SIZE);
 
-              sendto(server_udp_data, buffer, strlen(buffer), 0, (struct sockaddr *)&client, client_size);
+                sendto(server_udp_data, buffer, strlen(buffer), 0, (struct sockaddr *)&client, client_size);
 
-              //recalcul du RTT
-              estimate_RTT = estimateRTT(timeList[i], getTime(), estimate_RTT);
-              timeoutvalue.tv_usec = estimate_RTT;
+                //recalcul du RTT
+                estimate_RTT = estimateRTT(timeList[i], getTime(), estimate_RTT);
+                timeoutvalue.tv_usec = estimate_RTT;
+              }
             }
           }
 
