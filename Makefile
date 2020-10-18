@@ -7,7 +7,7 @@ OBJ= $(SRC:.c=.o)
 
 all: $(EXEC)
 
-server: server.o funcs.o
+server: server.o funcs.o funcs.h
 
 %: %.o
 	gcc  $^ -o $@ -lpthread
