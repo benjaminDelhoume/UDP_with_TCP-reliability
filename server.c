@@ -63,7 +63,7 @@ void *listen_ack()
       spot = find(sendList, sequence_number_received);
       if (spot == -1)
       {
-        printf("ACK number greater than ancient but not in the list : %d\n", sequence_number_received);
+        printf("ACK number greater than ancient %d but not in the list : %d\n", ancient_sequence_number_received, sequence_number_received);
         printIntList(sendList);
         for (int k = 0; k < WINDOW_LENGTH; k++)
         {
@@ -75,6 +75,8 @@ void *listen_ack()
           }
         }
         pthread_mutex_unlock(&mutex);
+        ancient_sequence_number_received = sequence_number_received;
+        repeat_number = 0;
         //printf("MUTEX UNlock après reception de l'ACK\n");
 
       }
@@ -122,7 +124,7 @@ void *listen_ack()
     }
     else
     {
-      printf("ACK number less than ancient : DISREGARD\n");
+      printf("ACK number %d less than ancient %d : DISREGARD\n",sequence_number_received, ancient_sequence_number_received);
     }
   }
   return NULL;
