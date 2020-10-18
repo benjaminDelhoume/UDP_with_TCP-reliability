@@ -172,6 +172,19 @@ int find(int *list, int sequence_number)
   return -1;
 }
 
+int findMin(int *list)
+{
+  int min = 0;
+  for (int i = 1; i < WINDOW_LENGTH; i++)
+  {
+    if (list[i] < list[min])
+    {
+      min = i;
+    }
+  }
+  return min;
+}
+
 bool timeout(struct timeval send_time, long int estimate_RTT)
 {
   struct timeval now = getTime();

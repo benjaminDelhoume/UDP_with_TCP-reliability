@@ -30,6 +30,8 @@ long int estimateRTT(struct timeval send_time, struct timeval receive_time, long
 
 int find(int *list, int sequence_number);
 
+int findMin(int *list);
+
 bool timeout(struct timeval send_time, long int estimate_RTT);
 
 void *listen_ack();
