@@ -137,24 +137,6 @@ int safe_send(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
   return msglen;
 }
 
-bool putFileIntoBuffer(FILE *file, char *buffer, int bufferSize)
-{
-  int i;
-  if (file == NULL)
-  {
-    strcpy(buffer, "No File Found");
-    buffer[strlen("No File Found")] = EOF;
-    return false;
-  }
-  for (i = 6; i < bufferSize; i++)
-  {
-    buffer[i] = fgetc(file);
-    if (buffer[i] == EOF)
-      return true;
-  }
-  return false;
-}
-
 struct timeval getTime(void)
 {
   struct timeval currentTime;
@@ -168,13 +150,11 @@ long int estimateRTT(struct timeval send_time, struct timeval receive_time, long
   if (receive_time.tv_usec >= send_time.tv_usec)
   {
     new_estimate_RTT = ALPHA * estimate_RTT + (1 - ALPHA) * (receive_time.tv_usec - send_time.tv_usec);
-    printf(" difference normale : %ld \n", (long int)new_estimate_RTT);
   }
   else
   {
     //proceder à la retenu
     new_estimate_RTT = ALPHA * estimate_RTT + (1 - ALPHA) * (1000000 + receive_time.tv_usec - send_time.tv_usec);
-    printf(" difference avec retenu : %ld \n", (long int)new_estimate_RTT);
   }
 
   return (long int)new_estimate_RTT;
@@ -184,7 +164,7 @@ int find(int *list, int sequence_number)
 {
   for (int i = 0; i < WINDOW_LENGTH; i++)
   {
-    if (list[i] == WINDOW_LENGTH)
+    if (list[i] == sequence_number)
     {
       return i;
     }
@@ -197,7 +177,7 @@ bool timeout(struct timeval send_time, long int estimate_RTT)
   struct timeval now = getTime();
   if (now.tv_usec >= estimate_RTT)
   {
-    now.tv_usec = -estimate_RTT;
+    now.tv_usec -= estimate_RTT;
   }
   else
   {
@@ -206,4 +186,24 @@ bool timeout(struct timeval send_time, long int estimate_RTT)
     now.tv_usec = 1000000 + now.tv_usec - estimate_RTT;
   }
   return (timercmp(&now, &send_time, >=));
+}
+
+void printIntList(int *list)
+{
+  printf("SendList : ");
+  for (int i = 0; i < WINDOW_LENGTH; i++)
+  {
+    printf("%d, ",list[i]);
+  }
+  printf("\n");
+}
+
+void printTimeList(struct timeval *list)
+{
+  printf("SendList : ");
+  for (int i = 0; i < WINDOW_LENGTH; i++)
+  {
+    printf("%ld, ",list[i].tv_usec);
+  }
+  printf("\n");
 }

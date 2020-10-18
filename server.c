@@ -1,34 +1,37 @@
 #include "funcs.h"
 
-pthread_mutex_t mutex;
 int server_udp_data = 0;
 
-int seq_number = 0;
+pthread_mutex_t mutex;
+long int estimate_RTT = TIMEOUT;
+int sendList[WINDOW_LENGTH];
+struct timeval timeList[WINDOW_LENGTH];
 int jeton = WINDOW_LENGTH;
-long int estimate_RTT;
+int sequence_repeat = 0;
+
+
 bool send_done = false;
 
 struct sockaddr_in client;
 struct timeval timeoutvalue;
 socklen_t client_size = sizeof(struct sockaddr);
 
-int sendList[WINDOW_LENGTH];
-struct timeval timeList[WINDOW_LENGTH];
+
 
 void *listen_ack()
 {
   printf("Starting listening thread\n");
-  //struct timeval send_time;
   struct timeval receive_time;
-
-  //fd_set receive_fd_set;
-  //FD_ZERO(&receive_fd_set);
-  //FD_SET(server_udp_data, &receive_fd_set);
 
   char ack_buffer[9];
   char ack_number[6];
+
+  int ancient_sequence_number_received = 0;
   int sequence_number_received = 0;
+  
   int spot;
+
+  int repeat_number = 0;  
 
   while (!send_done)
   {
@@ -50,32 +53,68 @@ void *listen_ack()
     }
 
     memset(ack_number, 0, 6);
-
     strncpy(ack_number, ack_buffer + 3, 6);
-
     sequence_number_received = atoi(ack_number);
 
-    pthread_mutex_lock(&mutex);
-    spot = find(sendList, sequence_number_received);
-    if (spot != -1)
+    if(sequence_number_received > ancient_sequence_number_received)
     {
-      printf("Good ACK number received : %d\n", sequence_number_received);
-      receive_time = getTime();
-      estimate_RTT = estimateRTT(timeList[spot], receive_time, estimate_RTT);
-      timeoutvalue.tv_usec = estimate_RTT;
+      pthread_mutex_lock(&mutex);
+      //printf("MUTEX lock après reception de l'ACK\n");
+      spot = find(sendList, sequence_number_received);
+      if (spot == -1)
+      {
+        printf("ACK number greater than ancient but not in the list : %d\n", sequence_number_received);
+        printIntList(sendList);
+        pthread_mutex_unlock(&mutex);
+        //printf("MUTEX UNlock après reception de l'ACK\n");
 
-      printf("Estimate RTT %ld \n", (timeoutvalue.tv_usec));
+      }
+      else
+      {
+        printf("Good ACK number received : %d following ancient %d\n", sequence_number_received, ancient_sequence_number_received);
+        receive_time = getTime();
+        estimate_RTT = estimateRTT(timeList[spot], receive_time, estimate_RTT);
+        timeoutvalue.tv_usec = estimate_RTT;
+        printf("Estimate RTT %ld \n", (timeoutvalue.tv_usec));
+        sendList[spot] = 0;
+        timeList[spot] = getTime();
+        //remove all sequence number between the ancient and the new one
+        jeton ++;
+        for (int i = ancient_sequence_number_received; i < sequence_number_received; i++)
+        {
+          spot = find(sendList, i);
+          if(spot != -1)
+          {
+            sendList[spot] = 0;
+            timeList[spot] = getTime();
+            jeton ++;
+          }
+        }
+        pthread_mutex_unlock(&mutex);
+        //printf("MUTEX UNlock après reception de l'ACK\n");
 
-      sendList[spot] = 0;
-      //timeList[spot] = 0;
-
-      jeton++;
+        ancient_sequence_number_received = sequence_number_received;
+        repeat_number = 0;
+      }
+      
+    }
+    else if 
+    (sequence_number_received == ancient_sequence_number_received)
+    {
+      repeat_number ++;
+      if(repeat_number == 3)
+      {
+        pthread_mutex_lock(&mutex);
+        //printf("MUTEX lock pour informer d'une répétition de ACK\n");
+        sequence_repeat = sequence_number_received;
+        pthread_mutex_unlock(&mutex);
+        //printf("MUTEX UNlock pour informer d'une répétition de ACK\n");
+      }
     }
     else
     {
-      printf("Ack number received different from expecting : %d\n", sequence_number_received);
+      printf("ACK number less than ancient : DISREGARD\n");
     }
-    pthread_mutex_unlock(&mutex);
   }
   return NULL;
 }
@@ -88,13 +127,18 @@ int main(int argc, char *argv[])
   int optval = 1; // To set SO_REUSEADDR to 1
   int port = 0;
   int data_port = 0;
-  //int recvsize = 0;
+  int seq_number = 0;
+  int token_buffer = 0;
+  int sequence_repeat_buffer = 0;
+  long int estimate_RTT_buffer = 0;
+
+  size_t read;
   pid_t fork_pid = 0;
-  //int send_sequence_number = 1;
   FILE *file;
   pthread_t threadack;
 
   char buffer[FILE_BUFFER_SIZE];
+  unsigned char file_buffer[FILE_BUFFER_SIZE];
   int msglen = 0;
   //int bytes_send = 0;
   bool end_file = false;
@@ -229,11 +273,13 @@ int main(int argc, char *argv[])
       {
         error("Mutex initialization failed");
       }
+
       //Creating the listening thread
       pthread_create(&threadack, NULL, listen_ack, NULL);
 
       // Starting here: we are connected to a client
       memset(&buffer, 0, FILE_BUFFER_SIZE);
+      memset(&file_buffer, 0, FILE_BUFFER_SIZE);
       printf("Waiting for new message\n");
 
       if (recvfrom(server_udp_data, buffer, FILE_BUFFER_SIZE, 0, (struct sockaddr *)&client, &client_size) < 0)
@@ -243,14 +289,17 @@ int main(int argc, char *argv[])
 
       printf("Client-%d(%d)>>%s\n", data_port, msglen, buffer);
 
-      file = fopen(buffer, "r");
+      file = fopen(buffer, "rb");
       if (file == NULL)
       {
         error("Problème lors de l'ouverture du fichier");
       }
 
       memset(&sendList, 0, WINDOW_LENGTH * sizeof(int));
-      memset(&timeList, 0, WINDOW_LENGTH * sizeof(int));
+      for (int j = 0; j < WINDOW_LENGTH; j ++)
+      {
+        timeList[j] = getTime();
+      }
 
       fseek(file, 0L, SEEK_END);
       int fileSize = ftell(file);
@@ -259,51 +308,133 @@ int main(int argc, char *argv[])
 
       while (!send_done)
       {
-        if (jeton > 0)
+
+        pthread_mutex_lock(&mutex);
+        //printf("MUTEX lock pour récupérer les infos du jeton\n");
+        token_buffer = jeton;
+        sequence_repeat_buffer = sequence_repeat;
+        pthread_mutex_unlock(&mutex);
+        //printf("MUTEX UNlock pour récupérer les infos du jeton\n");
+
+        if (token_buffer > 0)
         {
 
           if (!end_file)
           {
-            //send packets
-            pthread_mutex_lock(&mutex);
             seq_number++;
 
             //put sequence number into buffer
             memset(buffer, 0, FILE_BUFFER_SIZE);
-            printf("this is your seq_number: %06d\n", seq_number);
+            printf("seq_number: %06d\n", seq_number);
             sprintf(buffer, "%06d\n", seq_number);
+            for (int k=0; k<6; k ++)
+            {
+              file_buffer[k] = (unsigned char) buffer[k];
+            }
 
             //put text into buffer
-            fseek(file, 0L, (seq_number - 1) * (FILE_BUFFER_SIZE - 6));
+            fseek(file, (seq_number - 1) * (FILE_BUFFER_SIZE - 6), SEEK_SET);
 
-            pthread_mutex_unlock(&mutex);
-
-            end_file = putFileIntoBuffer(file, buffer, FILE_BUFFER_SIZE);
-
-            sendto(server_udp_data, buffer, strlen(buffer), 0, (struct sockaddr *)&client, client_size);
-
+            read = fread(&file_buffer[6],1,sizeof(file_buffer)-6,file);
+            printf("%d lu\n",(int) read);
+        
             //put sequence number and send time into lists into the first available spot
             pthread_mutex_lock(&mutex);
+            //printf("MUTEX lock avant envoi de packet\n");
+
             spot = find(sendList, 0);
             sendList[spot] = seq_number;
             timeList[spot] = getTime();
 
-            printf("This is your sendlist : %ls",sendList);
+            printIntList(sendList);
 
             jeton--;
+
             pthread_mutex_unlock(&mutex);
+            //printf("MUTEX UNlock avant envoi de packet\n");
+
+            if((int)read < FILE_BUFFER_SIZE - 6)
+            {
+              printf("%d (bytes lus) < %d : fin du fichier détécté ", (int)read, FILE_BUFFER_SIZE - 6);
+              sendto(server_udp_data, file_buffer, (int) read, 0, (struct sockaddr *)&client, client_size);
+              end_file = true;
+            }
+            else
+            {
+              sendto(server_udp_data, file_buffer, sizeof(file_buffer), 0, (struct sockaddr *)&client, client_size);
+            }           
           }
           else
           {
-            //check if the last packet is acked
-            if (find(sendList, seq_number) == -1)
+            printf("Fin du fichier reçu : attente du numéro de séquence %06d\n", seq_number);
+            pthread_mutex_lock(&mutex);
+            //printf("MUTEX lock pour savoir si les derniers packets du fichier ont été evoyés\n");
+            spot = find(sendList, seq_number);
+            pthread_mutex_unlock(&mutex);
+            //printf("MUTEX UNlock pour savoir si les derniers packets du fichier ont été evoyés\n");
+            if (spot == -1)
             {
               pthread_mutex_lock(&mutex);
               send_done = true;
               pthread_mutex_unlock(&mutex);
             }
+            else
+            {
+              
+              estimate_RTT_buffer = estimate_RTT;
+              //printf("WAIT for %ld microseconds\n", estimate_RTT_buffer);
+              usleep(estimate_RTT_buffer);
+              //printf("FIN WAIT\n");
+            }
+            
           }
+        }
+        else if (token_buffer == 0)
+        {
+          estimate_RTT_buffer = estimate_RTT;
+          //printf("WAIT for %ld microseconds\n", estimate_RTT_buffer);
+          usleep(estimate_RTT_buffer);
+          //printf("FIN WAIT\n");
+        }
 
+        if(sequence_repeat_buffer != 0)
+        {          
+          printf("Renvoie de 3 packets suivant la séquence: %06d\n", sequence_repeat_buffer);
+          for (int i = 1; i < 4; i++)
+          {
+            memset(buffer, 0, FILE_BUFFER_SIZE);
+            printf("seq_number: %06d\n", sequence_repeat_buffer + i);
+            sprintf(buffer, "%06d\n", sequence_repeat_buffer + i);
+            for (int k=0; k<6; k ++)
+            {
+              file_buffer[k] = (unsigned char) buffer[k];
+            }
+            //put text into buffer
+            fseek(file,(sequence_repeat_buffer + i - 1) * (FILE_BUFFER_SIZE - 6), SEEK_SET);
+
+            read = fread(&file_buffer[6],1,sizeof(file_buffer)-6,file);
+            printf("%d lu\n",(int) read);
+            
+            if((int)read < FILE_BUFFER_SIZE - 6)
+            {
+              printf("%d (bytes lus) < %d : fin du fichier détécté ", (int)read, FILE_BUFFER_SIZE - 6);
+              sendto(server_udp_data, file_buffer, (int) read, 0, (struct sockaddr *)&client, client_size);
+              end_file = true;
+            }
+            else
+            {
+              sendto(server_udp_data, file_buffer, sizeof(file_buffer), 0, (struct sockaddr *)&client, client_size);
+            }   
+          }
+          pthread_mutex_lock(&mutex);
+          //printf("MUTEX lock pour remettre le repeat sequence à zéro\n");
+          sequence_repeat = 0;
+          pthread_mutex_unlock(&mutex);
+          //printf("MUTEX UNlock pour remettre le repeat sequence à zéro\n");
+        }
+        /*int random = rand();
+        if (random > 0.9)
+        {
           //look to resend packets
           pthread_mutex_lock(&mutex);
           for (int i = 0; i < WINDOW_LENGTH; i++)
@@ -321,6 +452,7 @@ int main(int argc, char *argv[])
 
                 //put text into buffer
                 fseek(file, 0L, (sendList[i] - 1) * (FILE_BUFFER_SIZE - 6));
+                printf("Placement dans le fichier: %d\n", (sendList[i] - 1) * (FILE_BUFFER_SIZE - 6));
                 putFileIntoBuffer(file, buffer, FILE_BUFFER_SIZE);
 
                 sendto(server_udp_data, buffer, strlen(buffer), 0, (struct sockaddr *)&client, client_size);
@@ -330,10 +462,11 @@ int main(int argc, char *argv[])
                 timeoutvalue.tv_usec = estimate_RTT;
               }
             }
-          }
-
-          pthread_mutex_unlock(&mutex);
+           }
+        
         }
+
+          pthread_mutex_unlock(&mutex);*/
       }
       printf("This is you seq_number at the end : %d\n", seq_number);
 

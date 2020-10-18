@@ -1,4 +1,5 @@
 server
+copy_*
 *.o
 *.out
 *.log
