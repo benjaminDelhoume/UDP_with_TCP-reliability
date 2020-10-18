@@ -1,5 +1,7 @@
 server
-copy_moyen.txt
+copy_*
 *.o
+*.out
+*.log
 **/.idea/workspace.xml
 **/.idea/tasks.xml
