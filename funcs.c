@@ -177,7 +177,7 @@ int findMin(int *list)
   int min = 0;
   for (int i = 1; i < WINDOW_LENGTH; i++)
   {
-    if (list[i] < list[min])
+    if ((list[i] < list[min] && list[i] != 0) || list[min] == 0)
     {
       min = i;
     }

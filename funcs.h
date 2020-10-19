@@ -13,10 +13,10 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-#define FILE_BUFFER_SIZE 1500
-#define TIMEOUT 10000
-#define ALPHA 0.7
-#define WINDOW_LENGTH 10
+#define FILE_BUFFER_SIZE 512
+#define TIMEOUT 1000
+#define ALPHA 0.2
+#define WINDOW_LENGTH 128
 
 void error(char *msg);
 

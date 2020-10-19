@@ -7,7 +7,7 @@ long int estimate_RTT = TIMEOUT;
 int sendList[WINDOW_LENGTH];
 struct timeval timeList[WINDOW_LENGTH];
 int jeton = WINDOW_LENGTH;
-int sequence_repeat = 0;
+int sequence_repeat = -1 ;
 
 bool send_done = false;
 
@@ -47,9 +47,18 @@ void *listen_ack()
       pthread_mutex_lock(&mutex);
       spot = findMin(sendList);
       sequence_repeat = sendList[spot];
-      receive_time = getTime();
-      estimate_RTT = estimateRTT(timeList[spot], receive_time, estimate_RTT);
-      timeoutvalue.tv_usec = estimate_RTT;
+      if(sequence_repeat == 0)
+      {
+        sequence_repeat = 1;
+        timeoutvalue.tv_usec = TIMEOUT;
+      }
+      else
+      {
+        receive_time = getTime();
+        estimate_RTT = estimateRTT(timeList[spot], receive_time, estimate_RTT);
+        timeoutvalue.tv_usec = estimate_RTT;
+      }
+      printf("Séquence la plus petite en timeout %d\n",sequence_repeat);
       pthread_mutex_unlock(&mutex);
     }
     else
@@ -133,7 +142,7 @@ void *listen_ack()
         {
           pthread_mutex_lock(&mutex);
           //printf("MUTEX lock pour informer d'une répétition de ACK\n");
-          sequence_repeat = sequence_number_received;
+          sequence_repeat = sequence_number_received + 1;
           pthread_mutex_unlock(&mutex);
           //printf("MUTEX UNlock pour informer d'une répétition de ACK\n");
         }
@@ -157,7 +166,7 @@ int main(int argc, char *argv[])
   int data_port = 0;
   int seq_number = 0;
   int token_buffer = 0;
-  int sequence_repeat_buffer = 0;
+  int sequence_repeat_buffer = -1;
   long int estimate_RTT_buffer = 0;
 
   size_t read;
@@ -305,9 +314,6 @@ int main(int argc, char *argv[])
       timeoutvalue.tv_sec = 0;
       timeoutvalue.tv_usec = TIMEOUT;
 
-      //Creating the listening thread
-      pthread_create(&threadack, NULL, listen_ack, NULL);
-
       // Starting here: we are connected to a client
       memset(&buffer, 0, FILE_BUFFER_SIZE);
       memset(&file_buffer, 0, FILE_BUFFER_SIZE);
@@ -321,6 +327,9 @@ int main(int argc, char *argv[])
 
       printf("Client-%d(%d)>>%s\n", data_port, msglen, buffer);
 
+      //Creating the listening thread
+      pthread_create(&threadack, NULL, listen_ack, NULL);
+      
       file = fopen(buffer, "rb");
       if (file == NULL)
       {
@@ -392,7 +401,6 @@ int main(int argc, char *argv[])
               sequence_repeat = seq_number - 4;
               printf("Dans le mutex : Renvoi automatique des packets à partir de %d\n", sequence_repeat);
               pthread_mutex_unlock(&mutex);
-              printf("En dehors du mutex Renvoi automatique des packets à partir de %d\n", seq_number - 4);
             }
             else
             {
@@ -427,14 +435,14 @@ int main(int argc, char *argv[])
         {
           estimate_RTT_buffer = estimate_RTT;
           //printf("WAIT for %ld microseconds\n", estimate_RTT_buffer);
-          usleep(estimate_RTT_buffer / 2);
+          usleep(TIMEOUT);
           //printf("FIN WAIT\n");
         }
 
-        if (sequence_repeat_buffer != 0)
+        if (sequence_repeat_buffer != -1)
         {
-          printf("Renvoie de 3 packets suivant la séquence: %06d\n", sequence_repeat_buffer);
-          for (int i = 1; i < 4; i++)
+          printf("Renvoie de 4 packets à partir de la séquence: %06d\n", sequence_repeat_buffer);
+          for (int i = 0; i < 4; i++)
           {
             memset(buffer, 0, FILE_BUFFER_SIZE);
             printf("seq_number: %06d\n", sequence_repeat_buffer + i);
@@ -462,7 +470,7 @@ int main(int argc, char *argv[])
           }
           pthread_mutex_lock(&mutex);
           //printf("MUTEX lock pour remettre le repeat sequence à zéro\n");
-          sequence_repeat = 0;
+          sequence_repeat = -1;
           pthread_mutex_unlock(&mutex);
           //printf("MUTEX UNlock pour remettre le repeat sequence à zéro\n");
         }
@@ -522,3 +530,357 @@ int main(int argc, char *argv[])
   close(server_udp);
   return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
