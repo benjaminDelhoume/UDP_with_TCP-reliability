@@ -7,7 +7,7 @@ long int estimate_RTT = TIMEOUT;
 int sendList[WINDOW_LENGTH];
 struct timeval timeList[WINDOW_LENGTH];
 int jeton = WINDOW_LENGTH;
-int sequence_repeat = -1 ;
+int sequence_repeat = -1;
 
 bool send_done = false;
 
@@ -47,7 +47,7 @@ void *listen_ack()
       pthread_mutex_lock(&mutex);
       spot = findMin(sendList);
       sequence_repeat = sendList[spot];
-      if(sequence_repeat == 0)
+      if (sequence_repeat == 0)
       {
         sequence_repeat = 1;
         timeoutvalue.tv_usec = TIMEOUT;
@@ -140,7 +140,7 @@ void *listen_ack()
       else if (sequence_number_received == ancient_sequence_number_received)
       {
         repeat_number++;
-        if (repeat_number >= 3)
+        if (repeat_number >= MAX_ACK_RETRANSMIT)
         {
           pthread_mutex_lock(&mutex);
           ////printf("MUTEX lock pour informer d'une répétition de ACK\n");
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
   struct sockaddr_in server_address, client, server_address_data;
   int optval = 1; // To set SO_REUSEADDR to 1
   int port = 0;
-  int data_port = 2000 ;
+  int data_port = 2000;
   int seq_number = 0;
   int token_buffer = 0;
   int sequence_repeat_buffer = -1;
@@ -435,7 +435,6 @@ int main(int argc, char *argv[])
           //printf("WAIT for %d microseconds\n", TIMEOUT);
           usleep(TIMEOUT);
           //printf("FIN WAIT\n");
-
         }
 
         if (sequence_repeat_buffer != -1)
@@ -494,83 +493,3 @@ int main(int argc, char *argv[])
   close(server_udp);
   return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
