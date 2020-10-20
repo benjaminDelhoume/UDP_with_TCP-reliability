@@ -8,7 +8,7 @@ void error(char *msg)
 
 int tcp_over_udp_accept(int fd, int data_port, struct sockaddr_in *client)
 {
-  printf("Waiting for connection\n");
+  //printf("Waiting for connection\n");
   char buffer[32];
   int n;
   socklen_t client_size = sizeof(struct sockaddr);
@@ -24,7 +24,7 @@ int tcp_over_udp_accept(int fd, int data_port, struct sockaddr_in *client)
     perror("Connection must start with SYN\n");
     return -1;
   }
-  printf("SYN received\n");
+  //printf("SYN received\n");
 
   n = sendto(fd, SYN_ACK, strlen(SYN_ACK), 0, (struct sockaddr *)client, client_size);
   if (n < 0)
@@ -32,7 +32,7 @@ int tcp_over_udp_accept(int fd, int data_port, struct sockaddr_in *client)
     perror("Unable to send SYN-ACK\n");
     return -1;
   }
-  printf("SYN-ACK sent\n");
+  //printf("SYN-ACK sent\n");
 
   memset(buffer, 0, 32);
 
@@ -42,7 +42,7 @@ int tcp_over_udp_accept(int fd, int data_port, struct sockaddr_in *client)
     perror("ACK not received\n");
     return -1;
   }
-  printf("ACK received. Connected\n");
+  //printf("ACK received. Connected\n");
 
   return data_port;
 }
@@ -77,7 +77,7 @@ int safe_send(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
       perror("Error sending message\n");
       return -1;
     }
-    printf("%d bytes sent.\n", msglen);
+    //printf("%d bytes sent.\n", msglen);
 
     FD_ZERO(&receive_fd_set);
     FD_SET(fd, &receive_fd_set);
@@ -89,7 +89,7 @@ int safe_send(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
     }
     else if (rcv == 0)
     {
-      printf("Timeout, Resending\n");
+      //printf("Timeout, Resending\n");
       receive_time = getTime();
       estimate_RTT = estimateRTT(send_time, receive_time, estimate_RTT);
       timeout.tv_usec = estimate_RTT;
@@ -102,7 +102,7 @@ int safe_send(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
       estimate_RTT = estimateRTT(send_time, receive_time, estimate_RTT);
       timeout.tv_usec = estimate_RTT;
 
-      printf("Estimate RTT %ld \n", (timeout.tv_usec));
+      //printf("Estimate RTT %ld \n", (timeout.tv_usec));
 
       if (ack_msglen < 0)
       {
@@ -124,13 +124,13 @@ int safe_send(int fd, char *buffer, struct sockaddr_in *client, int seq_number)
 
       if (sequence_number_received == seq_number)
       {
-        printf("Good ACK number received : %d\n", sequence_number_received);
+        //printf("Good ACK number received : %d\n", sequence_number_received);
         flag = false;
       }
       else
       {
-        printf("Ack number received different from expecting : %d\n", sequence_number_received);
-        printf("Resending");
+        //printf("Ack number received different from expecting : %d\n", sequence_number_received);
+        //printf("Resending");
       }
     }
   }
@@ -203,20 +203,20 @@ bool timeout(struct timeval send_time, long int estimate_RTT)
 
 void printIntList(int *list)
 {
-  printf("SendList : ");
+  //printf("SendList : ");
   for (int i = 0; i < WINDOW_LENGTH; i++)
   {
-    printf("%d, ",list[i]);
+    //printf("%d, ",list[i]);
   }
-  printf("\n");
+  //printf("\n");
 }
 
 void printTimeList(struct timeval *list)
 {
-  printf("SendList : ");
+  //printf("SendList : ");
   for (int i = 0; i < WINDOW_LENGTH; i++)
   {
-    printf("%ld, ",list[i].tv_usec);
+    //printf("%ld, ",list[i].tv_usec);
   }
-  printf("\n");
+  //printf("\n");
 }
