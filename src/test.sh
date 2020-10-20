@@ -2,7 +2,7 @@
 
 echo "debut du test"
 
-server_address='134.214.202.243'
+server_address='192.168.1.16'
 #ANCIENT_FILE_BUFFER_SIZE='1500'
 ANCIENT_WINDOW_LENGTH='128'
 ANCIENT_ALPHA='0.99'

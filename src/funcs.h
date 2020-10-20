@@ -14,10 +14,10 @@
 #include <pthread.h>
 
 #define FILE_BUFFER_SIZE 1500
-#define TIMEOUT 5000
+#define TIMEOUT 50000
 #define ALPHA 0.7
 #define WINDOW_LENGTH 64
-#define MAX_ACK_RETRANSMIT 1
+#define MAX_ACK_RETRANSMIT 3
 
 void error(char *msg);
 
