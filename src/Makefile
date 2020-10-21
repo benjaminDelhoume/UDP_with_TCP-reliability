@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall -DDEBUG 
+CFLAGS = -g -Wall -DDEBUG
 EXEC = server1-GreDel
 SRC= $(EXEC:=.c)
 OBJ= $(SRC:.c=.o)
@@ -8,6 +8,7 @@ OBJ= $(SRC:.c=.o)
 all: $(EXEC)
 
 server1-GreDel: server1-GreDel.o funcs.o funcs.h
+server2-GreDel: server2-GreDel.o funcs.o funcs.h
 
 %: %.o
 	gcc  $^ -o $@ -lpthread
@@ -15,7 +16,7 @@ server1-GreDel: server1-GreDel.o funcs.o funcs.h
 %.o: %.c %.h
 	gcc $(CFLAGS) -c $< -o $@ -lpthread
 
-clean: 
+clean:
 	\rm -rf $(OBJ) *.o $(EXEC)
 
 move:
