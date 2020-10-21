@@ -14,8 +14,8 @@
 
 #define MAX_DGRAM_SIZE 5000
 #define FILE_BUFFER_SIZE 1500
-#define TIMEOUT 1000
-#define ALPHA 0.8
+#define TIMEOUT 15000
+#define ALPHA 0.99
 
 void error(char *msg);
 
