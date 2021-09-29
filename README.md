@@ -1,6 +1,6 @@
 # UDP Server with reliability
 
-UDP socket server with some reliability of TCP
+UDP socket server with some TCP features implemented in order to increase reliability. Clients are implemented to send packets and randomly drop some of them or send bad info to the server . 3 servers are implemented for two client, you can launch as many clients as you want.
 
 * Server Launch
    * ./server port 
